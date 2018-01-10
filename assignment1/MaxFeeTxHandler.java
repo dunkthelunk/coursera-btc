@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.Function;
@@ -7,7 +8,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class TxHandler {
+public class MaxFeeTxHandler {
 
   private UTXOPool utxoPool;
   private Function<Transaction, List<UTXO>> getUTXOsClaimedByTx = transaction -> transaction.getInputs().stream().map(in -> new UTXO(in.prevTxHash, in.outputIndex))
@@ -18,7 +19,7 @@ public class TxHandler {
    * {@code utxoPool}. This should make a copy of utxoPool by using the UTXOPool(UTXOPool uPool)
    * constructor.
    */
-  public TxHandler(UTXOPool utxoPool) {
+  public MaxFeeTxHandler(UTXOPool utxoPool) {
     this.utxoPool = new UTXOPool(utxoPool);
   }
 
@@ -65,7 +66,9 @@ public class TxHandler {
   public Transaction[] handleTxs(Transaction[] possibleTxs) {
     List<Transaction> validTransactions = new ArrayList<>();
     List<Transaction> possibleTransactions = Arrays.asList(possibleTxs);
+    possibleTransactions.sort(Comparator.comparing(this::getTxFee).reversed());
     List<Transaction> validTxInThisIter;
+
     while (!(validTxInThisIter = handleTxsIter(possibleTransactions)).isEmpty()) {
       validTransactions.addAll(validTxInThisIter);
       possibleTransactions.removeAll(validTxInThisIter);
@@ -76,11 +79,16 @@ public class TxHandler {
   private List<Transaction> handleTxsIter(List<Transaction> possibleTxs) {
     List<Transaction> validTxsInThisIter = new ArrayList<>();
     possibleTxs.stream().filter(this::isValidTx).forEach(tx -> {
-      tx.getInputs().stream().map(in -> new UTXO(in.prevTxHash, in.outputIndex)).forEach(utxoPool::removeUTXO);
+      getUTXOsClaimedByTx.apply(tx).forEach(utxoPool::removeUTXO);
       IntStream.range(0, tx.getOutputs().size()).forEach(i -> utxoPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i)));
       validTxsInThisIter.add(tx);
     });
     return validTxsInThisIter;
+  }
+
+  private Double getTxFee(Transaction transaction) {
+    return getUTXOsClaimedByTx.apply(transaction).stream().map(utxoPool::getTxOutput).mapToDouble(o -> o.value).sum() -
+           transaction.getOutputs().stream().mapToDouble(o -> o.value).sum();
   }
 
 }
