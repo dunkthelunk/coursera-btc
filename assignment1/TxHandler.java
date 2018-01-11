@@ -90,7 +90,7 @@ public class TxHandler {
    */
   public Transaction[] handleTxs(Transaction[] possibleTxs) {
     List<Transaction> validTransactions = new ArrayList<>();
-    List<Transaction> possibleTransactions = Arrays.asList(possibleTxs);
+    List<Transaction> possibleTransactions = new ArrayList<>(Arrays.asList(possibleTxs));
     List<Transaction> validTxInThisIter;
     while (!(validTxInThisIter = handleTxsIter(possibleTransactions)).isEmpty()) {
       validTransactions.addAll(validTxInThisIter);
