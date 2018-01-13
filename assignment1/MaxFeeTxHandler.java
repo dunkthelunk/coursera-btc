@@ -92,22 +92,22 @@ public class MaxFeeTxHandler {
   public Transaction[] handleTxs(Transaction[] possibleTxs) {
     List<Transaction> validTransactions = new ArrayList<>();
     List<Transaction> possibleTransactions = new ArrayList<>(Arrays.asList(possibleTxs));
+    List<Transaction> invalidTransactions = new ArrayList<>(possibleTransactions);
 
     UTXOPool copyOfOrigUTXOPool = new UTXOPool(utxoPool);
-
-    possibleTransactions.forEach(
-        tx ->
-            IntStream.range(0, tx.getOutputs().size())
-                .forEach(i -> utxoPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i))));
-    possibleTransactions.removeIf(
-        tx -> getUTXOsClaimedByTx.apply(tx).stream().anyMatch(utxo -> !utxoPool.contains(utxo)));
-
-    possibleTransactions.sort(Comparator.comparing(this::getTxFee).reversed());
-    utxoPool = copyOfOrigUTXOPool;
-    List<Transaction> validTxInThisIter;
-    while (!(validTxInThisIter = handleTxsIter(possibleTransactions)).isEmpty()) {
+    while (!invalidTransactions.isEmpty()) {
+      validTransactions = new ArrayList<>();
+      utxoPool = new UTXOPool(copyOfOrigUTXOPool);
+      possibleTransactions.forEach(
+          tx ->
+              IntStream.range(0, tx.getOutputs().size())
+                  .forEach(i -> utxoPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i))));
+      possibleTransactions.sort(Comparator.comparing(this::getTxFee).reversed());
+      List<Transaction> validTxInThisIter = handleTxsIter(possibleTransactions);
       validTransactions.addAll(validTxInThisIter);
       possibleTransactions.removeAll(validTxInThisIter);
+      invalidTransactions = new ArrayList<>(possibleTransactions);
+      possibleTransactions = new ArrayList<>(validTransactions);
     }
     return validTransactions.toArray(new Transaction[validTransactions.size()]);
   }
@@ -123,8 +123,6 @@ public class MaxFeeTxHandler {
                   .stream()
                   .map(in -> new UTXO(in.prevTxHash, in.outputIndex))
                   .forEach(utxoPool::removeUTXO);
-              IntStream.range(0, tx.getOutputs().size())
-                  .forEach(i -> utxoPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i)));
               validTxsInThisIter.add(tx);
             });
     return validTxsInThisIter;
@@ -135,7 +133,13 @@ public class MaxFeeTxHandler {
             .apply(transaction)
             .stream()
             .map(utxoPool::getTxOutput)
-            .mapToDouble(o -> o.value)
+            .mapToDouble(
+                o -> {
+                  if (o == null) {
+                    return 0.0;
+                  }
+                  return o.value;
+                })
             .sum()
         - transaction.getOutputs().stream().mapToDouble(o -> o.value).sum();
   }
