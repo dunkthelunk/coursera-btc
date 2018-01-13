@@ -102,7 +102,7 @@ public class MaxFeeTxHandler {
           tx ->
               IntStream.range(0, tx.getOutputs().size())
                   .forEach(i -> utxoPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i))));
-      possibleTransactions.sort(Comparator.comparing(this::getTxFee).reversed());
+      possibleTransactions.sort(new FeeComparator(possibleTransactions).reversed());
       List<Transaction> validTxInThisIter = handleTxsIter(possibleTransactions);
       validTransactions.addAll(validTxInThisIter);
       possibleTransactions.removeAll(validTxInThisIter);
@@ -128,19 +128,47 @@ public class MaxFeeTxHandler {
     return validTxsInThisIter;
   }
 
-  private Double getTxFee(Transaction transaction) {
-    return getUTXOsClaimedByTx
-            .apply(transaction)
-            .stream()
-            .map(utxoPool::getTxOutput)
-            .mapToDouble(
-                o -> {
-                  if (o == null) {
-                    return 0.0;
-                  }
-                  return o.value;
-                })
-            .sum()
-        - transaction.getOutputs().stream().mapToDouble(o -> o.value).sum();
+  private class FeeComparator implements Comparator<Transaction> {
+    private List<Transaction> possibleTransactions;
+
+    public FeeComparator(List<Transaction> possibleTransactions) {
+      this.possibleTransactions = possibleTransactions;
+    }
+
+    public int compare(Transaction tx1, Transaction tx2) {
+      return getTotalFeeDueTo(tx1).compareTo(getTotalFeeDueTo(tx2));
+    }
+
+    private Double getTotalFeeDueTo(Transaction tx) {
+      Double totalFee = getTxFee(tx);
+      List<UTXO> utxosOfThisTx =
+          IntStream.range(0, tx.getOutputs().size())
+              .mapToObj(i -> new UTXO(tx.getHash(), i))
+              .collect(Collectors.toList());
+      List<Transaction> dependentTxs =
+          possibleTransactions
+              .stream()
+              .filter(tx1 -> isValidTx(tx1))
+              .filter(
+                  tx1 -> getUTXOsClaimedByTx.apply(tx1).stream().anyMatch(utxosOfThisTx::contains))
+              .collect(Collectors.toList());
+      return totalFee + dependentTxs.stream().mapToDouble(tx1 -> getTotalFeeDueTo(tx1)).sum();
+    }
+
+    private Double getTxFee(Transaction transaction) {
+      return getUTXOsClaimedByTx
+              .apply(transaction)
+              .stream()
+              .map(utxoPool::getTxOutput)
+              .mapToDouble(
+                  o -> {
+                    if (o == null) {
+                      return 0.0;
+                    }
+                    return o.value;
+                  })
+              .sum()
+          - transaction.getOutputs().stream().mapToDouble(o -> o.value).sum();
+    }
   }
 }
