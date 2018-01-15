@@ -131,10 +131,11 @@ public class MaxFeeTxHandler {
   private class FeeComparator implements Comparator<Transaction> {
     private List<Transaction> possibleTransactions;
 
-    public FeeComparator(List<Transaction> possibleTransactions) {
+    FeeComparator(List<Transaction> possibleTransactions) {
       this.possibleTransactions = possibleTransactions;
     }
 
+    @Override
     public int compare(Transaction tx1, Transaction tx2) {
       return getTotalFeeDueTo(tx1).compareTo(getTotalFeeDueTo(tx2));
     }
@@ -148,11 +149,11 @@ public class MaxFeeTxHandler {
       List<Transaction> dependentTxs =
           possibleTransactions
               .stream()
-              .filter(tx1 -> isValidTx(tx1))
+              .filter(MaxFeeTxHandler.this::isValidTx)
               .filter(
                   tx1 -> getUTXOsClaimedByTx.apply(tx1).stream().anyMatch(utxosOfThisTx::contains))
               .collect(Collectors.toList());
-      return totalFee + dependentTxs.stream().mapToDouble(tx1 -> getTotalFeeDueTo(tx1)).sum();
+      return totalFee + dependentTxs.stream().mapToDouble(this::getTotalFeeDueTo).sum();
     }
 
     private Double getTxFee(Transaction transaction) {
