@@ -1,0 +1,28 @@
+- tx all transactions; no blacklisting Score - 65
+
+Tests for this assignment involve your submitted miner competing with a number of different types of malicious miners
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.3, p_txDistribution = 0.01, numRounds = 10
+On average 44 out of 72 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.3, p_txDistribution = 0.05, numRounds = 10
+On average 54 out of 72 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.45, p_txDistribution = 0.01, numRounds = 10
+On average 29 out of 58 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.45, p_txDistribution = 0.05, numRounds = 10
+On average 33 out of 58 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.3, p_txDistribution = 0.01, numRounds = 10
+On average 48 out of 76 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.3, p_txDistribution = 0.05, numRounds = 10
+On average 61 out of 76 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.45, p_txDistribution = 0.01, numRounds = 10
+On average 29 out of 54 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.45, p_txDistribution = 0.05, numRounds = 10
+On average 36 out of 54 of nodes reach consensus
+

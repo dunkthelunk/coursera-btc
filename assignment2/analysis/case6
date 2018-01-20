@@ -1,0 +1,28 @@
+- broadcast new transactions; blacklist if followee sends same tx twice or inactive for 2 rounds. Score - 91
+
+Tests for this assignment involve your submitted miner competing with a number of different types of malicious miners
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.3, p_txDistribution = 0.01, numRounds = 10
+On average 66 out of 72 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.3, p_txDistribution = 0.05, numRounds = 10
+On average 72 out of 72 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.45, p_txDistribution = 0.01, numRounds = 10
+On average 16 out of 58 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.1, p_malicious = 0.45, p_txDistribution = 0.05, numRounds = 10
+On average 57 out of 58 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.3, p_txDistribution = 0.01, numRounds = 10
+On average 76 out of 76 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.3, p_txDistribution = 0.05, numRounds = 10
+On average 76 out of 76 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.45, p_txDistribution = 0.01, numRounds = 10
+On average 54 out of 54 of nodes reach consensus
+
+Running test with parameters: numNodes = 100, p_graph = 0.2, p_malicious = 0.45, p_txDistribution = 0.05, numRounds = 10
+On average 53 out of 54 of nodes reach consensus
+
