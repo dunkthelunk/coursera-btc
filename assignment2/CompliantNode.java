@@ -2,6 +2,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -11,12 +12,15 @@ public class CompliantNode implements Node {
   private double p_malicious;
   private double p_txDistribution;
   private int numRoundsLeft;
+  private boolean spamIsOK;
 
   private Set<Transaction> pendingTransactions;
   private Set<Transaction> txsToTransmit;
   private Map<Integer, Set<Transaction>> mapOfFolloweesAndTheirMessages;
   private Map<Integer, Integer> numOfRoundsFolloweeDidntRespond;
   private boolean[] followees;
+  private BiFunction<Double, Double, Boolean> spamPredicate =
+      (pgraph, ptxDist) -> pgraph * ptxDist <= 0.001;
 
   public CompliantNode(
       double p_graph, double p_malicious, double p_txDistribution, int numRoundsLeft) {
@@ -26,6 +30,7 @@ public class CompliantNode implements Node {
     this.numRoundsLeft = numRoundsLeft;
     mapOfFolloweesAndTheirMessages = new HashMap<>();
     numOfRoundsFolloweeDidntRespond = new HashMap<>();
+    spamIsOK = spamPredicate.apply(p_graph, p_txDistribution);
   }
 
   @Override
@@ -72,11 +77,11 @@ public class CompliantNode implements Node {
                 return;
               }
               mapOfFolloweesAndTheirMessages.putIfAbsent(c.sender, new HashSet<>());
-              if (mapOfFolloweesAndTheirMessages.get(c.sender).contains(c.tx)) {
+              if (!spamIsOK && mapOfFolloweesAndTheirMessages.get(c.sender).contains(c.tx)) {
                 followees[c.sender] = false;
               } else {
                 mapOfFolloweesAndTheirMessages.get(c.sender).add(c.tx);
-                if (!pendingTransactions.contains(c.tx)) {
+                if (spamIsOK || !pendingTransactions.contains(c.tx)) {
                   txsToTransmit.add(c.tx);
                 }
               }
