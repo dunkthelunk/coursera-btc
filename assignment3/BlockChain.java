@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 // Block Chain should maintain only limited block nodes to satisfy the functions
@@ -19,6 +20,7 @@ public class BlockChain {
   private LinkedBlockingQueue<List<Block>> blocksInMemory;
   private Map<ByteArrayWrapper, Integer> blockHeightMap;
   private int minHeightInMem;
+  private Function<byte[], ByteArrayWrapper> wrapper = ByteArrayWrapper::new;
 
   private void addUTXOsOfThisTxToPool(Transaction tx, UTXOPool uPool) {
     IntStream.range(0, tx.getOutputs().size())
@@ -37,9 +39,9 @@ public class BlockChain {
     utxoPoolMap = new HashMap<>();
     UTXOPool genesisBlockUtxoPool = new UTXOPool();
     addUTXOsOfThisTxToPool(genesisBlock.getCoinbase(), genesisBlockUtxoPool);
-    utxoPoolMap.put(new ByteArrayWrapper(genesisBlock.getHash()), genesisBlockUtxoPool);
+    utxoPoolMap.put(wrapper.apply(genesisBlock.getHash()), genesisBlockUtxoPool);
     blockHeightMap = new HashMap<>();
-    blockHeightMap.put(new ByteArrayWrapper(genesisBlock.getHash()), minHeightInMem);
+    blockHeightMap.put(wrapper.apply(genesisBlock.getHash()), minHeightInMem);
   }
 
   /** Get the maximum height block */
@@ -50,7 +52,7 @@ public class BlockChain {
 
   /** Get the UTXOPool for mining a new block on top of max height block */
   public UTXOPool getMaxHeightUTXOPool() {
-    return utxoPoolMap.get(new ByteArrayWrapper(getMaxHeightBlock().getHash()));
+    return utxoPoolMap.get(wrapper.apply(getMaxHeightBlock().getHash()));
   }
 
   /** Get the transaction pool to mine a new block */
@@ -73,10 +75,10 @@ public class BlockChain {
       if (block.getPrevBlockHash() == null) {
         return false;
       }
-      if (blockHeightMap.containsKey(new ByteArrayWrapper(block.getHash()))) {
+      if (blockHeightMap.containsKey(wrapper.apply(block.getHash()))) {
         return true;
       }
-      ByteArrayWrapper parentHash = new ByteArrayWrapper(block.getPrevBlockHash());
+      ByteArrayWrapper parentHash = wrapper.apply(block.getPrevBlockHash());
       Integer heightOfParent = blockHeightMap.get(parentHash);
       if (heightOfParent == null || heightOfParent < minHeightInMem) {
         return false;
@@ -89,8 +91,8 @@ public class BlockChain {
       List<Transaction> validTransactions =
           Arrays.asList(txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0])));
       if (validTransactions.size() == block.getTransactions().size()) {
-        utxoPoolMap.put(new ByteArrayWrapper(block.getHash()), txHandler.getUTXOPool());
-        blockHeightMap.put(new ByteArrayWrapper(block.getHash()), heightOfParent + 1);
+        utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
+        blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
       } else {
         return false;
       }
