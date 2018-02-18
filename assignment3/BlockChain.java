@@ -71,52 +71,51 @@ public class BlockChain {
    * @return true if block is successfully added
    */
   public boolean addBlock(Block block) {
-    try {
-      if (block.getPrevBlockHash() == null) {
-        return false;
-      }
-      if (blockHeightMap.containsKey(wrapper.apply(block.getHash()))) {
-        return true;
-      }
-      ByteArrayWrapper parentHash = wrapper.apply(block.getPrevBlockHash());
-      Integer heightOfParent = blockHeightMap.get(parentHash);
-      if (heightOfParent == null || heightOfParent < minHeightInMem) {
-        return false;
-      }
-
-      UTXOPool copyOfParentUTXOPool = new UTXOPool(utxoPoolMap.get(parentHash));
-
-      addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
-      TxHandler txHandler = new TxHandler(copyOfParentUTXOPool);
-      List<Transaction> validTransactions =
-          Arrays.asList(txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0])));
-      if (validTransactions.size() == block.getTransactions().size()) {
-        utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
-        blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
-      } else {
-        return false;
-      }
-      if (heightOfParent == minHeightInMem + CUT_OFF_AGE - 1) {
-        minHeightInMem++;
-        blocksInMemory.take();
-      }
-      if (heightOfParent == minHeightInMem + blocksInMemory.size() - 1) {
-        List<Block> latestBlocks = new ArrayList<>();
-        latestBlocks.add(block);
-        blocksInMemory.offer(latestBlocks);
-        return true;
-      }
-      Iterator<List<Block>> it = blocksInMemory.iterator();
-      List<Block> currentItem = it.next();
-      for (int i = 0; i <= heightOfParent - minHeightInMem; i++) {
-        currentItem = it.next();
-      }
-      currentItem.add(block);
-      return true;
-    } catch (Exception e) {
-      e.printStackTrace();
+    if (block.getPrevBlockHash() == null) {
+      return false;
     }
-    return false;
+    if (blockHeightMap.containsKey(wrapper.apply(block.getHash()))) {
+      return true;
+    }
+    ByteArrayWrapper parentHash = wrapper.apply(block.getPrevBlockHash());
+    Integer heightOfParent = blockHeightMap.get(parentHash);
+    if (heightOfParent == null || heightOfParent < minHeightInMem) {
+      return false;
+    }
+
+    UTXOPool copyOfParentUTXOPool = new UTXOPool(utxoPoolMap.get(parentHash));
+
+    addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
+    TxHandler txHandler = new TxHandler(copyOfParentUTXOPool);
+    List<Transaction> validTransactions =
+        Arrays.asList(txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0])));
+    if (validTransactions.size() == block.getTransactions().size()) {
+      utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
+      blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
+    } else {
+      return false;
+    }
+    if (heightOfParent == minHeightInMem + CUT_OFF_AGE - 1) {
+      minHeightInMem++;
+      try {
+        blocksInMemory.take();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    if (heightOfParent == minHeightInMem + blocksInMemory.size() - 1) {
+      List<Block> latestBlocks = new ArrayList<>();
+      latestBlocks.add(block);
+      blocksInMemory.offer(latestBlocks);
+      return true;
+    }
+    Iterator<List<Block>> it = blocksInMemory.iterator();
+    List<Block> currentItem = it.next();
+    for (int i = 0; i <= heightOfParent - minHeightInMem; i++) {
+      currentItem = it.next();
+    }
+    currentItem.add(block);
+    return true;
   }
 
   /** Add a transaction to the transaction pool */
