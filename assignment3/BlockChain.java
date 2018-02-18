@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.IntStream;
 
 // Block Chain should maintain only limited block nodes to satisfy the functions
 // You should not have all the blocks added to the block chain in memory
@@ -18,20 +19,24 @@ public class BlockChain {
   private LinkedBlockingQueue<List<Block>> blocksInMemory;
   private Map<ByteArrayWrapper, Integer> blockHeightMap;
   private int minHeightInMem;
+
+  private void addUTXOsOfThisTxToPool(Transaction tx, UTXOPool uPool) {
+    IntStream.range(0, tx.getOutputs().size())
+        .forEach(i -> uPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i)));
+  }
   /**
    * create an empty block chain with just a genesis block. Assume {@code genesisBlock} is a valid
    * block
    */
   public BlockChain(Block genesisBlock) {
-    minHeightInMem = 0;
+    minHeightInMem = 1;
     transactionPool = new TransactionPool();
     blocksInMemory = new LinkedBlockingQueue<>(CUT_OFF_AGE);
     List<Block> blocksAtHeight0 = Collections.singletonList(genesisBlock);
     blocksInMemory.offer(blocksAtHeight0);
     utxoPoolMap = new HashMap<>();
     UTXOPool genesisBlockUtxoPool = new UTXOPool();
-    genesisBlockUtxoPool.addUTXO(
-        new UTXO(genesisBlock.getCoinbase().getHash(), 0), genesisBlock.getCoinbase().getOutput(0));
+    addUTXOsOfThisTxToPool(genesisBlock.getCoinbase(), genesisBlockUtxoPool);
     utxoPoolMap.put(new ByteArrayWrapper(genesisBlock.getHash()), genesisBlockUtxoPool);
     blockHeightMap = new HashMap<>();
     blockHeightMap.put(new ByteArrayWrapper(genesisBlock.getHash()), minHeightInMem);
@@ -68,6 +73,9 @@ public class BlockChain {
       if (block.getPrevBlockHash() == null) {
         return false;
       }
+      if (blockHeightMap.containsKey(new ByteArrayWrapper(block.getHash()))) {
+        return true;
+      }
       ByteArrayWrapper parentHash = new ByteArrayWrapper(block.getPrevBlockHash());
       Integer heightOfParent = blockHeightMap.get(parentHash);
       if (heightOfParent == null || heightOfParent < minHeightInMem) {
@@ -75,8 +83,8 @@ public class BlockChain {
       }
 
       UTXOPool copyOfParentUTXOPool = new UTXOPool(utxoPoolMap.get(parentHash));
-      copyOfParentUTXOPool.addUTXO(
-          new UTXO(block.getCoinbase().getHash(), 0), block.getCoinbase().getOutput(0));
+
+      addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
       TxHandler txHandler = new TxHandler(copyOfParentUTXOPool);
       List<Transaction> validTransactions =
           Arrays.asList(txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0])));
