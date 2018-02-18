@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -87,14 +86,14 @@ public class BlockChain {
 
     addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
     TxHandler txHandler = new TxHandler(copyOfParentUTXOPool);
-    List<Transaction> validTransactions =
-        Arrays.asList(txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0])));
-    if (validTransactions.size() == block.getTransactions().size()) {
-      utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
-      blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
-    } else {
+    Transaction[] validTransactions =
+        txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0]));
+    if (validTransactions.length != block.getTransactions().size()) {
       return false;
     }
+    utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
+    blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
+
     if (heightOfParent == minHeightInMem + CUT_OFF_AGE - 1) {
       minHeightInMem++;
       try {
