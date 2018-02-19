@@ -1,10 +1,10 @@
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -14,33 +14,54 @@ import java.util.stream.IntStream;
 
 public class BlockChain {
   public static final int CUT_OFF_AGE = 10;
+
+  private static final int QUEUE_SIZE = 2 * CUT_OFF_AGE;
   private TransactionPool transactionPool;
   private Map<ByteArrayWrapper, UTXOPool> utxoPoolMap;
   private LinkedBlockingQueue<List<Block>> blocksInMemory;
   private Map<ByteArrayWrapper, Integer> blockHeightMap;
-  private int minHeightInMem;
+  private int minHeightInQueue;
   private Function<byte[], ByteArrayWrapper> wrapper = ByteArrayWrapper::new;
+
+  private Function<Integer, Consumer<Block>> addBlockAtHeight =
+      height ->
+          (block -> {
+            if (height > minHeightInQueue + blocksInMemory.size() - 1) {
+              if (blocksInMemory.size() == QUEUE_SIZE) {
+                minHeightInQueue++;
+                blocksInMemory.poll();
+              }
+              blocksInMemory.add(new ArrayList<>());
+            }
+
+            Iterator<List<Block>> queueIterator = blocksInMemory.iterator();
+            List<Block> currentItem = queueIterator.next();
+            for (int i = 0; i < height - minHeightInQueue; i++) {
+              currentItem = queueIterator.next();
+            }
+            currentItem.add(block);
+            blockHeightMap.put(wrapper.apply(block.getHash()), height);
+          });
 
   private void addUTXOsOfThisTxToPool(Transaction tx, UTXOPool uPool) {
     IntStream.range(0, tx.getOutputs().size())
         .forEach(i -> uPool.addUTXO(new UTXO(tx.getHash(), i), tx.getOutput(i)));
   }
+
   /**
    * create an empty block chain with just a genesis block. Assume {@code genesisBlock} is a valid
    * block
    */
   public BlockChain(Block genesisBlock) {
-    minHeightInMem = 1;
+    minHeightInQueue = 1;
     transactionPool = new TransactionPool();
-    blocksInMemory = new LinkedBlockingQueue<>(CUT_OFF_AGE);
-    List<Block> blocksAtHeight0 = Collections.singletonList(genesisBlock);
-    blocksInMemory.offer(blocksAtHeight0);
+    blocksInMemory = new LinkedBlockingQueue<>(QUEUE_SIZE);
+    blockHeightMap = new HashMap<>();
     utxoPoolMap = new HashMap<>();
     UTXOPool genesisBlockUtxoPool = new UTXOPool();
     addUTXOsOfThisTxToPool(genesisBlock.getCoinbase(), genesisBlockUtxoPool);
     utxoPoolMap.put(wrapper.apply(genesisBlock.getHash()), genesisBlockUtxoPool);
-    blockHeightMap = new HashMap<>();
-    blockHeightMap.put(wrapper.apply(genesisBlock.getHash()), minHeightInMem);
+    addBlockAtHeight.apply(1).accept(genesisBlock);
   }
 
   /** Get the maximum height block */
@@ -73,47 +94,26 @@ public class BlockChain {
     if (block.getPrevBlockHash() == null) {
       return false;
     }
-    if (blockHeightMap.containsKey(wrapper.apply(block.getHash()))) {
-      return true;
-    }
     ByteArrayWrapper parentHash = wrapper.apply(block.getPrevBlockHash());
     Integer heightOfParent = blockHeightMap.get(parentHash);
-    if (heightOfParent == null || heightOfParent < minHeightInMem) {
+    if (heightOfParent == null) {
+      return false;
+    }
+    if (heightOfParent + 1 < minHeightInQueue + blocksInMemory.size() - 1 - CUT_OFF_AGE) {
       return false;
     }
 
     UTXOPool copyOfParentUTXOPool = new UTXOPool(utxoPoolMap.get(parentHash));
-
-    addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
     TxHandler txHandler = new TxHandler(copyOfParentUTXOPool);
     Transaction[] validTransactions =
         txHandler.handleTxs(block.getTransactions().toArray(new Transaction[0]));
     if (validTransactions.length != block.getTransactions().size()) {
       return false;
     }
-    utxoPoolMap.put(wrapper.apply(block.getHash()), txHandler.getUTXOPool());
-    blockHeightMap.put(wrapper.apply(block.getHash()), heightOfParent + 1);
-
-    if (heightOfParent == minHeightInMem + CUT_OFF_AGE - 1) {
-      minHeightInMem++;
-      try {
-        blocksInMemory.take();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    if (heightOfParent == minHeightInMem + blocksInMemory.size() - 1) {
-      List<Block> latestBlocks = new ArrayList<>();
-      latestBlocks.add(block);
-      blocksInMemory.offer(latestBlocks);
-      return true;
-    }
-    Iterator<List<Block>> it = blocksInMemory.iterator();
-    List<Block> currentItem = it.next();
-    for (int i = 0; i <= heightOfParent - minHeightInMem; i++) {
-      currentItem = it.next();
-    }
-    currentItem.add(block);
+    copyOfParentUTXOPool = txHandler.getUTXOPool();
+    addUTXOsOfThisTxToPool(block.getCoinbase(), copyOfParentUTXOPool);
+    utxoPoolMap.put(wrapper.apply(block.getHash()), copyOfParentUTXOPool);
+    addBlockAtHeight.apply(heightOfParent + 1).accept(block);
     return true;
   }
 
