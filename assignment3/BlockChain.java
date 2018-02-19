@@ -61,7 +61,7 @@ public class BlockChain {
     UTXOPool genesisBlockUtxoPool = new UTXOPool();
     addUTXOsOfThisTxToPool(genesisBlock.getCoinbase(), genesisBlockUtxoPool);
     utxoPoolMap.put(wrapper.apply(genesisBlock.getHash()), genesisBlockUtxoPool);
-    addBlockAtHeight.apply(1).accept(genesisBlock);
+    addBlockAtHeight.apply(minHeightInQueue).accept(genesisBlock);
   }
 
   /** Get the maximum height block */
