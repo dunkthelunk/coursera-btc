@@ -99,7 +99,7 @@ public class BlockChain {
     if (heightOfParent == null) {
       return false;
     }
-    if (heightOfParent + 1 < minHeightInQueue + blocksInMemory.size() - 1 - CUT_OFF_AGE) {
+    if (heightOfParent + 1 <= minHeightInQueue + blocksInMemory.size() - 1 - CUT_OFF_AGE) {
       return false;
     }
 
